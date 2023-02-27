@@ -15,9 +15,9 @@ class RegularizedLogisticRegression(object):
     '''
     def __init__(self):
         self.learningRate = 0.00001 # Feel free to play around with this if you'd like, though this value will do
-        self.num_epochs = 10000 # Feel free to play around with this if you'd like, though this value will do
+        self.num_epochs = 100 # Feel free to play around with this if you'd like, though this value will do
         self.batch_size = 15 # Feel free to play around with this if you'd like, though this value will do
-        self.weights = None
+        self.weights = None 
 
         #####################################################################
         #                                                                    #
@@ -25,7 +25,7 @@ class RegularizedLogisticRegression(object):
         #                                                                    #
         #####################################################################
 
-        self.lmbda = 0 # tune this parameter
+        self.lmbda = 100 # tune this parameter
 
     def train(self, X, Y):
         '''
@@ -36,7 +36,22 @@ class RegularizedLogisticRegression(object):
         @return:
             None
         '''
-        #[TODO]
+        self.weights = np.zeros(X.shape[1])
+        for n in range(self.num_epochs):
+            print("training...", n)
+            p = np.random.permutation(len(X))
+            X = X[p]
+            Y = Y[p]
+            for i in range((int)(len(Y)/self.batch_size-1)):
+                X_batch = X[i*self.batch_size: (i+1)*self.batch_size]
+                Y_batch = Y[i*self.batch_size: (i+1)*self.batch_size]
+                d_loss = np.zeros(self.weights.shape)
+                for j in range(X.shape[1]):
+                    for x, y in zip(X_batch, Y_batch):
+                        d_loss[j] += (sigmoid_function(np.dot(self.weights, x))-y)*x[j]
+                    d_loss[j] = d_loss[j] / self.batch_size
+                    d_loss[j] += 2 * self.lmbda * self.weights[j]
+                self.weights = self.weights - (self.learningRate*d_loss)/len(X_batch)
 
     def predict(self, X):
         '''
@@ -46,7 +61,8 @@ class RegularizedLogisticRegression(object):
         @return:
             A 1D Numpy array with one element for each row in X containing the predicted class.
         '''
-        #[TODO]
+        preds = np.asarray([1 if a > 0.5 else 0 for a in sigmoid_function(np.dot(self.weights, np.transpose(X)))])
+        return preds
 
     def accuracy(self,X, Y):
         '''
@@ -57,7 +73,8 @@ class RegularizedLogisticRegression(object):
         @return:
             a float number indicating accuracy (between 0 and 1)
         '''
-        #[TODO]
+        ypred = self.predict(X)
+        return np.sum(ypred == Y)/len(Y)
 
     def runTrainTestValSplit(self, lambda_list, X_train, Y_train, X_val, Y_val):
         '''
@@ -80,6 +97,12 @@ class RegularizedLogisticRegression(object):
         train_errors = []
         val_errors = []
         #[TODO] train model and calculate train and validation errors here for each lambda
+        for lbda in lambda_list:
+            self.lmbda = lbda
+            self.train(X_train, Y_train)
+            train_errors.append([1 - self.accuracy(X_train, Y_train)])
+            self.train(X_val, Y_val)
+            val_errors.append([1 - self.accuracy(X_val, Y_val)])
 
         return train_errors, val_errors
 
@@ -126,11 +149,35 @@ class RegularizedLogisticRegression(object):
         for lmbda in lambda_list:
             self.lmbda = lmbda
             #[TODO] call _kFoldSplitIndices to split indices into k groups randomly
+            indices_split = self._kFoldSplitIndices(X, k)
+            # indices_split_Y = self._kFoldSplitIndices(Y, k)
 
             #[TODO] for each iteration i = 1...k, train the model using lmbda
             # on k−1 folds of data. Then test with the i-th fold.
+            errors = 0
+            test_set = []
+            test_set_Y = []
+            train_set = []
+            train_set_Y = []
+            for i in range(k):
+                for index in indices_split[i]:
+                    test_set.append([X[index]])
+                    test_set_Y.append([Y[index]])
+                if i == 0:
+                    indices = indices_split[i+1:]
+                elif i == k-1:
+                    indices = indices_split[:i]
+                else:
+                    indices = np.concatenate((indices_split[:i], indices_split[i+1:]), axis=0)
+                for indexx in indices:
+                    train_set.append([X[indexx]])
+                    train_set_Y.append([Y[indexx]])
+                self.train(np.asarray(train_set).reshape(-1, X.shape[1]), np.asarray(train_set_Y).flatten())
+                errors += 1 - self.accuracy(np.squeeze(np.asarray(test_set)), np.squeeze(np.asarray(test_set_Y)))
 
             #[TODO] calculate and record the cross validation error by averaging total errors
+            errors = errors/k
+            k_fold_errors.append([errors])
 
         return k_fold_errors
 

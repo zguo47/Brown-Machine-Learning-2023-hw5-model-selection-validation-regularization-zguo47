@@ -40,7 +40,6 @@ def main():
     print(train_errors, val_errors, k_fold_errors)
     RR.plotError(lambda_list, train_errors, val_errors, k_fold_errors)
     '''
-
 if __name__ == '__main__':
     np.random.seed(16)
     random.seed(16)
